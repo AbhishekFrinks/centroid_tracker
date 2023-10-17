@@ -160,6 +160,7 @@ class CentroidTracker():
         return self.objects
 
 
+
 class YoloDetector():
 
     def __init__(self, model_name):
