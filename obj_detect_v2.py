@@ -92,8 +92,8 @@ def main():
     print(size)
 
 
-    start_point = (frame_width//2,0)
-    end_point = (frame_width//2,frame_height)
+    start_point = (0,frame_height//2)
+    end_point = (frame_width,frame_height//2)
 
     result = cv2.VideoWriter('output3.mp4',  
                             cv2.VideoWriter_fourcc(*'mp4v'), 
@@ -102,6 +102,10 @@ def main():
     count = 0
     left_obj_count = 0
     right_obj_count = 0
+
+    left_obj_lt = []
+    right_obj_lt = []
+
 
     while True:
         ret, frame = cap.read()
@@ -141,28 +145,34 @@ def main():
             cv2.circle(frame, (centroid1[0], centroid1[1]), 10, (0, 255, 0), -1)
             cv2.putText(frame, f"ID: {object_id1}", (centroid1[0] - 10, centroid1[1] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.line(frame, start_point, end_point, (0, 255, 0), 2) 
+
             x.append(object_id1)
+            if centroid1[1]<(frame_height//2) and object_id1 not in left_obj_lt:
+                left_obj_count+=1
+                left_obj_lt.append(object_id1)
 
         for (object_id2, centroid2) in right_tracker.objects.items():
             
             cv2.circle(frame, (centroid2[0], centroid2[1]), 10, (0, 255, 0), -1)
             cv2.putText(frame, f"ID: {object_id2}", (centroid2[0] - 10, centroid2[1] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.line(frame, start_point, end_point, (0, 255, 0), 2) 
+
             y.append(object_id2)
+            if centroid2[1]<(frame_height//2) and object_id2 not in right_obj_lt:
+                right_obj_count+=1
+                right_obj_lt.append(object_id2)
 
-        left_obj_count = object_id1+1
-        right_obj_count = object_id2+1
+        cv2.line(frame, start_point, end_point, (255, 0, 0), 2) 
 
+        print(right_obj_count)
         cv2.putText(frame, f"ID: {x}", (50,50),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.putText(frame, f"object count: {left_obj_count}", (50,80),
+        cv2.putText(frame, f"object count: {left_obj_count+1}", (50,80),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         
         cv2.putText(frame, f"ID: {y}", (1000,50),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.putText(frame, f"object count: {right_obj_count}", (1000,80),
+        cv2.putText(frame, f"object count: {right_obj_count+1}", (1000,80),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     
         cv2.imwrite(f'output/{count}.jpg',frame)

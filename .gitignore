@@ -170,3 +170,4 @@ output/*.jpg
 pgp_centroid_tracker/output_frames/*.jpg
 *.zip
 *.pt
+bridgestone/output/*.jpg
