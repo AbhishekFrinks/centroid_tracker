@@ -21,7 +21,7 @@ class CentroidTracker:
     def update(self, rects):
         new_centroids = np.zeros((len(rects), 2), dtype="int")
 
-        for (i, (start_x, start_y, end_x, end_y, _)) in enumerate(rects):
+        for (i, (start_x, start_y, end_x, end_y)) in enumerate(rects):
             c_x = int((start_x + end_x) / 2.0)
             c_y = int((start_y + end_y) / 2.0)
             new_centroids[i] = (c_x, c_y)
@@ -63,13 +63,18 @@ class CentroidTracker:
                 self.deregister(object_id)
 
 
+
+
+
+
 def main():
     # Initialize YOLOv5 model
     model_name = '/home/frinksserver/Desktop/Abhishek/object_tracking/best_biscuit_detection.pt'
     model = torch.hub.load('/home/frinksserver/Desktop/Abhishek/object_tracking/yolov5', "custom", source='local',path=model_name,force_reload=True)
 
     # Initialize centroid tracker
-    tracker = CentroidTracker()
+    left_tracker = CentroidTracker()
+    right_tracker = CentroidTracker()
 
     # Initialize Video Capture
     cap = cv2.VideoCapture('video2.avi')
@@ -78,16 +83,25 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     cap.set(cv2.CAP_PROP_FPS, 10)
     fps = int(cap.get(5))
-    print(fps)
+
 
 
     frame_width = int(cap.get(3)) 
     frame_height = int(cap.get(4)) 
     size = (frame_width,frame_height)
+    print(size)
+
+
+    start_point = (frame_width//2,0)
+    end_point = (frame_width//2,frame_height)
 
     result = cv2.VideoWriter('output3.mp4',  
                             cv2.VideoWriter_fourcc(*'mp4v'), 
                             fps, size) 
+
+    count = 0
+    left_obj_count = 0
+    right_obj_count = 0
 
     while True:
         ret, frame = cap.read()
@@ -98,26 +112,64 @@ def main():
         # Run YOLOv5 model on the frame
         results = model(frame)
         labels, cord = results.xyxy[0][:, -1].cpu().numpy(), results.xyxy[0][:, :-1].cpu().numpy()
-        n = len(labels)
-        for i in range(n):
-            row = cord[i]
+        
+        x = []
+        y = []
+
+        boxes = cord
+
+        left_cord = []
+        right_cord = []
+        for (i, (start_x, start_y, end_x, end_y, _)) in enumerate(boxes):
+            c_x = int((start_x + end_x) / 2.0)
+            c_y = int((start_y + end_y) / 2.0)
+            if c_x<(frame_width//2):
+                left_cord.append([start_x, start_y, end_x, end_y])
+            else:
+                right_cord.append([start_x, start_y, end_x, end_y])
+
+
+        # Update left tracker
+        left_tracker.update(left_cord)
+
+        right_tracker.update(right_cord)
+    
+
+        # Draw tracked objects
+        for (object_id1, centroid1) in left_tracker.objects.items():
             
-            if row[4] >= 0.85:
+            cv2.circle(frame, (centroid1[0], centroid1[1]), 10, (0, 255, 0), -1)
+            cv2.putText(frame, f"ID: {object_id1}", (centroid1[0] - 10, centroid1[1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.line(frame, start_point, end_point, (0, 255, 0), 2) 
+            x.append(object_id1)
 
+        for (object_id2, centroid2) in right_tracker.objects.items():
+            
+            cv2.circle(frame, (centroid2[0], centroid2[1]), 10, (0, 255, 0), -1)
+            cv2.putText(frame, f"ID: {object_id2}", (centroid2[0] - 10, centroid2[1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.line(frame, start_point, end_point, (0, 255, 0), 2) 
+            y.append(object_id2)
 
-                # Filter boxes with 'person' label (label ID = 0)
-                boxes = [cord[i] for i, label in enumerate(labels) if label == 0]
+        left_obj_count = object_id1+1
+        right_obj_count = object_id2+1
 
-                # Update tracker
-                tracker.update(boxes)
-
-                # Draw tracked objects
-                for (object_id, centroid) in tracker.objects.items():
-                    cv2.circle(frame, (centroid[0], centroid[1]), 10, (0, 255, 0), -1)
-                    cv2.putText(frame, f"ID: {object_id}", (centroid[0] - 10, centroid[1] - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        cv2.putText(frame, f"ID: {x}", (50,50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(frame, f"object count: {left_obj_count}", (50,80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        
+        cv2.putText(frame, f"ID: {y}", (1000,50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(frame, f"object count: {right_obj_count}", (1000,80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    
+        cv2.imwrite(f'output/{count}.jpg',frame)
         result.write(frame)
+        count+=1
         cv2.imshow('Frame', frame)
+
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
